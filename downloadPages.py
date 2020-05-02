@@ -16,33 +16,31 @@ opener.addheaders = [
     ('user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36')]
 install_opener(opener)
 
-
-def download_chapter(chapter):
-    start_time = time.time()
-    if not path.exists(manga['title']+'/'+chapter['title']):
-        os.mkdir(manga['title']+'/'+chapter['title'])
-    for pageIndex, page in enumerate(chapter['pages']):
-        for i in range(6):
-            try:
-                if path.exists("{}/{}/{}_{}".format(manga['title'], chapter['title'], pageIndex, str(page).split('/')[-1])):
-                    print("Page {} already exists. Moving on to the next page...".format(str(page).split('/')[-1]))
-                    break
-                else:
-                    url = str(page)
-                    urlretrieve(url, "{}/{}/{}_{}".format(manga['title'], chapter['title'], pageIndex, str(page).split('/')[-1]))
-                    print("Chapter ({}): Page({}) Downloaded.".format(chapter['title'],pageIndex))
-                    break
-            except HTTPError as e:
-                print(e.status, e.reason)
-                print('An error happened [HTTPError] when downloading Page {}. Trying again [{} of 6]'.format(str(page).split('/')[-1] ,i + 1))
-                sleep(pow(2, i))
-            except URLError as e:
-                print(e.reason)
-                print('An error happened [URLError] when downloading Page {}. Trying again [{} of 6]'.format(str(page).split('/')[-1] ,i + 1))
-                sleep(pow(2, i))
-    return "Chapter {} Downloaded. ({} pages) in {} seconds".format(chapter['title'], len(chapter['pages']), time.time() - start_time)
-
-
+def download_pages(args):
+    pageIndex, page = args
+    # pageIndex = int(str(page).split('_')[0])
+    for i in range(6):
+        try:
+            if path.exists("{}/{}/{}_{}".format(manga['title'], chapter['title'], pageIndex, str(page).split('/')[-1])):
+                return "Page {} already exists ".format(str(page).split('/')[-1])
+            else:
+                url = str(page)
+                urlretrieve(url, "{}/{}/{}_{}".format(manga['title'], chapter['title'], pageIndex, str(page).split('/')[-1]))
+                return "Page({}) ".format(pageIndex)
+        except HTTPError as e:
+            print(e.status, e.reason)
+            print('An error happened [HTTPError] when downloading Page {}. Trying again [{} of 6]'.format(str(page).split('/')[-1], i + 1))
+            sleep(pow(2, i))
+        except URLError as e:
+            print(e.reason)
+            print('An error happened [URLError] when downloading Page {}. Trying again [{} of 6]'.format(str(page).split('/')[-1], i + 1))
+            sleep(pow(2, i))
+        except:
+            print('Unknown Error')
+            print('An error happened [Unknown] when downloading Page ({}) page. Trying again [{} of 6]'.format(str(page).split('/')[-1], i + 1))
+            sleep(pow(2, i))
+    return "ERROR " + page
+    
 mangas = []
 max_chapters = 999999999
 if __name__ == '__main__':
@@ -55,7 +53,7 @@ if __name__ == '__main__':
     with open('mangas_pages.json') as json_file:
         mangas = json.load(json_file)
         print("{} mangas finded.".format(len(mangas)))
-    for index, manga in enumerate(mangas):
+    for manga in mangas:
         start_time = time.time()
         print("Downloading Manga {}. This Manga has {} chapters".format(manga['title'], len(manga['chapters'])))
         if not path.exists(manga['title']):
@@ -63,10 +61,20 @@ if __name__ == '__main__':
         
         manga['chapters'] = manga['chapters'][:max_chapters]
         
-        results = ThreadPool(len(manga['chapters'])).imap_unordered(download_chapter, manga['chapters'], chunksize= 10)
-        for r in results:
-            print(r)
-        print("Finished in {} seconds ({} minutes)".format(time.time() - start_time, (time.time() - start_time) / 60))
+        for index, chapter in enumerate(manga['chapters']):
+            start_time_chapter = time.time()
+            if not path.exists(manga['title']+'/'+chapter['title']):
+                os.mkdir(manga['title']+'/'+chapter['title'])
+            print("Downloaded pages: ")
+            results = ThreadPool(len(chapter['pages'])).imap_unordered(download_pages, enumerate(chapter['pages']))
+            for r in results:
+                print(r, end=' ')
+            print()
+            print("Chapter {}/{} downloaded in {} seconds".format(index, len(manga['chapters']), round(time.time() - start_time_chapter, 2)))
+            print('---------------')
+            
+        print("Finished in {} seconds ({} minutes)".format(round(time.time() - start_time, 2), round((time.time() - start_time) / 60), 2))
+        print("------------------------------------------------------------------")
 
     
     print("End")
